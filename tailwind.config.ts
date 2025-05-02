@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { fontFamily } from "tailwindcss/defaultTheme";
 
 export default {
     darkMode: ["class"],
@@ -9,6 +10,10 @@ export default {
   ],
   theme: {
   	extend: {
+       fontFamily: {
+        sans: ["var(--font-medievalsharp)", ...fontFamily.serif], // Use MedievalSharp as primary, serif fallback
+        medievalsharp: ["var(--font-medievalsharp)", ...fontFamily.serif], // Explicitly define
+      },
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
@@ -82,11 +87,16 @@ export default {
   				to: {
   					height: '0'
   				}
-  			}
+  			},
+        'subtle-pulse': { // Example subtle animation
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '.85' },
+        }
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+        'subtle-pulse': 'subtle-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite', // Example subtle animation
   		}
   	}
   },
