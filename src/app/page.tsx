@@ -1,249 +1,235 @@
-'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+"use client";
+
+import { useState } from 'react';
+import { Sidebar, SidebarProvider } from '@/components/ui/sidebar'; // Import SidebarProvider
 import { CombatScreen } from '@/components/combat/combat-screen';
-import { CharacterManagementScreen } from '@/components/character/character-management-screen';
 import { NarrativeDisplay } from '@/components/narrative/narrative-display';
-import type { Hero, Enemy, GameState } from '@/types/game';
-import { generateNarrative } from '@/ai/flows/narrative-generation';
-import { useToast } from '@/hooks/use-toast';
-import { Skeleton } from '@/components/ui/skeleton';
-
-// Mock data for initial state
-const initialHeroes: Hero[] = [
-  { id: 'hero1', name: 'Seraphina', class: 'Crusader', level: 1, hp: 30, maxHp: 30, stress: 10, maxStress: 100, skills: ['Smite', 'Bulwark'], equippedItems: ['Basic Sword', 'Chainmail'], avatarUrl: 'https://picsum.photos/seed/hero1/100/100', statusEffects: [] },
-  { id: 'hero2', name: 'Kael', class: 'Highwayman', level: 1, hp: 25, maxHp: 25, stress: 20, maxStress: 100, skills: ['Pistol Shot', 'Open Vein'], equippedItems: ['Dagger', 'Flintlock'], avatarUrl: 'https://picsum.photos/seed/hero2/100/100', statusEffects: ['Bleeding'] },
-  // Add more heroes if needed
-];
-
-const initialEnemies: Enemy[] = [
-  { id: 'enemy1', name: 'Grotesque', hp: 40, maxHp: 40, attack: 8, defense: 2, skills: ['Blight', 'Rend'], imageUrl: 'https://picsum.photos/seed/enemy1/100/100', statusEffects: [] },
-  { id: 'enemy2', name: 'Cultist Acolyte', hp: 20, maxHp: 20, attack: 5, defense: 0, skills: ['Stress Curse', 'Knife Jab'], imageUrl: 'https://picsum.photos/seed/enemy2/100/100', statusEffects: ['Weakened'] },
-];
+import { CharacterManagementScreen } from '@/components/character/character-management-screen';
+import type { GameState } from '@/types/game';
+import { initialCryptEncounterState } from '@/ai/dev'; // Import the initial state
+import { generateNarrative, GenerateNarrativeInput } from '@/ai/flows/narrative-generation'; // Import narrative generation
+import { useToast } from "@/hooks/use-toast"; // Import useToast
 
 export default function Home() {
-  const [gameState, setGameState] = useState<GameState | null>(null);
-  const [selectedHeroId, setSelectedHeroId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'combat' | 'management'>('combat');
-  const [isLoadingNarrative, setIsLoadingNarrative] = useState(false);
+  const [activeView, setActiveView] = useState('combat'); // Default to combat view
+  const [gameState, setGameState] = useState<GameState>(initialCryptEncounterState);
+  const [isNarrativeLoading, setIsNarrativeLoading] = useState(false);
   const { toast } = useToast();
 
-   // Initialize Game State
-   useEffect(() => {
-     setGameState({
-       party: initialHeroes,
-       enemies: initialEnemies,
-       currentTurn: 'player',
-       round: 1,
-       narrativeLog: [],
-       playerActions: "The adventure begins. The heroes step into the decaying crypt.",
-       inGameEvents: "Dust motes dance in the slivers of light piercing the gloom. The air is heavy with the stench of decay.",
-     });
-   }, []);
+  // Get the current active hero based on gameState (simplified)
+  // In a real game, this would track whose turn it actually is.
+  // For now, let's assume it's always the first hero if it's the player's turn.
+  const activeHeroId = gameState.currentTurn === 'player' && gameState.party.length > 0 ? gameState.party[0].id : null;
+  const [selectedHeroId, setSelectedHeroId] = useState<string | null>(gameState.party.length > 0 ? gameState.party[0].id : null);
 
-  const updateNarrative = useCallback(async (playerActions: string, inGameEvents: string) => {
-    if (!gameState) return;
-    setIsLoadingNarrative(true);
-    try {
-      const result = await generateNarrative({ playerActions, inGameEvents });
-      setGameState(prev => {
-        if (!prev) return null;
-        // Keep only the last N narratives (e.g., 10)
-        const updatedLog = [...prev.narrativeLog, result.narrative].slice(-10);
-        return { ...prev, narrativeLog: updatedLog, playerActions: "", inGameEvents: "" };
-      });
-    } catch (error) {
-      console.error('Narrative generation failed:', error);
-      toast({
-        title: 'Narrative Error',
-        description: 'Failed to generate narrative. Please try again.',
-        variant: 'destructive',
-      });
-       // Add a fallback narrative
-      setGameState(prev => {
-        if (!prev) return null;
-        const fallbackNarrative = `Error: Could not generate narrative. ${playerActions}. ${inGameEvents}`;
-        const updatedLog = [...prev.narrativeLog, fallbackNarrative].slice(-10);
-        return { ...prev, narrativeLog: updatedLog, playerActions: "", inGameEvents: "" };
-      });
-    } finally {
-      setIsLoadingNarrative(false);
-    }
-  }, [gameState, toast]); // Add gameState and toast to dependencies
-
-  // Trigger initial narrative generation
-  useEffect(() => {
-    if (gameState && gameState.narrativeLog.length === 0 && gameState.playerActions && gameState.inGameEvents) {
-       updateNarrative(gameState.playerActions, gameState.inGameEvents);
-    }
-   }, [gameState, updateNarrative]); // Add updateNarrative
-
-
-  const handleCombatAction = (action: string, targetId?: string) => {
-    if (!gameState || gameState.currentTurn !== 'player') return;
-
-    console.log(`Player action: ${action} on target ${targetId}`);
-    // TODO: Implement actual combat logic (damage, status effects, etc.)
-
-    // Example: Simple attack logic
-    let playerActionDesc = "";
-    let eventDesc = "";
-    const actingHero = gameState.party[0]; // Simplification: always first hero acts
-
-    if (action === 'attack' && targetId) {
-       const targetEnemy = gameState.enemies.find(e => e.id === targetId);
-       if (targetEnemy) {
-         const damage = Math.max(1, 10 - targetEnemy.defense); // Placeholder damage
-         targetEnemy.hp = Math.max(0, targetEnemy.hp - damage);
-         playerActionDesc = `${actingHero.name} attacks ${targetEnemy.name} with ${actingHero.skills[0] || 'a basic attack'}.`;
-         eventDesc = `${targetEnemy.name} takes ${damage} damage. ${targetEnemy.hp <= 0 ? `${targetEnemy.name} is slain!` : ''}`;
-
-         // Remove defeated enemy
-          if (targetEnemy.hp <= 0) {
-             gameState.enemies = gameState.enemies.filter(e => e.id !== targetId);
-         }
-       }
-    } else {
-        // Handle other skills (placeholder)
-        playerActionDesc = `${actingHero.name} uses ${action}.`;
-        eventDesc = `The air crackles with energy.`; // Generic event description
-    }
-
-
-    // Switch turn to enemy (placeholder logic)
-    const nextState: GameState = {
-        ...gameState,
-        currentTurn: 'enemy',
-        playerActions: playerActionDesc,
-        inGameEvents: eventDesc,
-    };
-    setGameState(nextState);
-    updateNarrative(playerActionDesc, eventDesc);
-
-    // Simulate enemy turn after a delay
-    setTimeout(() => handleEnemyTurn(nextState), 1500);
-  };
-
-   const handleEnemyTurn = (currentState: GameState) => {
-     if (currentState.currentTurn !== 'enemy' || currentState.enemies.length === 0) return;
-
-     const actingEnemy = currentState.enemies[0]; // Simplification
-     const targetHero = currentState.party[Math.floor(Math.random() * currentState.party.length)]; // Random target
-
-     const damage = Math.max(1, actingEnemy.attack - 5); // Placeholder damage & hero defense
-     targetHero.hp = Math.max(0, targetHero.hp - damage);
-
-     const enemyActionDesc = `${actingEnemy.name} uses ${actingEnemy.skills[0] || 'a basic attack'} on ${targetHero.name}.`;
-     const eventDesc = `${targetHero.name} takes ${damage} damage. ${targetHero.hp <= 0 ? `${targetHero.name} has fallen!` : ''}`;
-
-     // TODO: Implement hero death logic
-
-     // Switch turn back to player
-     const nextRound = currentState.round + 1;
-     const nextState: GameState = {
-         ...currentState,
-         currentTurn: 'player',
-         round: nextRound,
-         playerActions: enemyActionDesc,
-         inGameEvents: eventDesc,
-     };
-     setGameState(nextState);
-     updateNarrative(enemyActionDesc, eventDesc);
- };
-
-
-  const handleSelectHero = (heroId: string) => {
-    setSelectedHeroId(heroId);
-  };
-
-  const handleUpgradeStat = (heroId: string, stat: string) => {
-     // TODO: Implement upgrade logic (cost resources, update stats)
-     console.log(`Upgrade ${stat} for hero ${heroId}`);
-      toast({
-        title: "Upgrade",
-        description: `Upgraded ${stat} for hero ${heroId}. (Placeholder)`,
-      });
-
-      setGameState(prev => {
-        if (!prev) return null;
-        const updatedParty = prev.party.map(hero => {
-            if (hero.id === heroId) {
-                if (stat === 'hp') return { ...hero, maxHp: hero.maxHp + 5, hp: hero.hp + 5 };
-                if (stat === 'stress') return { ...hero, maxStress: hero.maxStress + 10 };
-                 // Add more stat upgrades later
-            }
-            return hero;
-        });
-        return { ...prev, party: updatedParty };
-      });
-      // Update selected hero view if it matches
-      if (selectedHeroId === heroId) {
-          const updatedHero = gameState?.party.find(h => h.id === heroId);
-          if (updatedHero) {
-              // Trigger re-render by updating the ID (or the whole hero obj if state structure allows)
-              setSelectedHeroId(null); // Force deselection
-              setTimeout(() => setSelectedHeroId(heroId), 0); // Reselect to refresh
-          }
-      }
-  };
-
-  const handleEquipItem = (heroId: string, itemId: string) => {
-     // TODO: Implement item equipping logic
-     console.log(`Equip item ${itemId} for hero ${heroId}`);
-      toast({
-        title: "Equip Item",
-        description: `Equipped item ${itemId} on hero ${heroId}. (Placeholder)`,
-      });
-  };
-
-  if (!gameState) {
-    // Loading state or initial setup display
-    return (
-      <div className="flex flex-col h-screen p-4">
-         <Skeleton className="h-10 w-48 mb-4 self-center" /> {/* Tabs Skeleton */}
-         <Skeleton className="h-48 mb-4" /> {/* Narrative Skeleton */}
-         <Skeleton className="flex-1" /> {/* Main Content Skeleton */}
-      </div>
-    );
-  }
-
+   // Find the selected hero object
   const selectedHero = gameState.party.find(hero => hero.id === selectedHeroId);
 
-  return (
-    <div className="flex flex-col h-screen p-4 space-y-4">
-       <h1 className="text-3xl font-bold text-center text-primary font-medievalsharp">Crimson Fate</h1>
+  const handleAction = async (action: string, targetId?: string) => {
+    console.log(`Action: ${action}, Target: ${targetId}`);
+    // TODO: Implement full game logic
+    const actingHeroName = gameState.party[0]?.name || 'Hero'; // Simple assumption
 
-       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'combat' | 'management')} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="combat">Combat</TabsTrigger>
-          <TabsTrigger value="management">Character Management</TabsTrigger>
-        </TabsList>
-        <TabsContent value="combat" className="flex-1 mt-0">
-           {/* Narrative Display - Placed above combat */}
-           <div className="mb-4">
-             <NarrativeDisplay log={gameState.narrativeLog} isLoading={isLoadingNarrative} />
-           </div>
-           <CombatScreen
-             party={gameState.party}
-             enemies={gameState.enemies}
-             currentTurn={gameState.currentTurn}
-             round={gameState.round}
-             onAction={handleCombatAction}
-           />
-        </TabsContent>
-        <TabsContent value="management" className="flex-1 mt-0">
+    // Basic narrative input
+    const narrativeInput: GenerateNarrativeInput = {
+      playerActions: `${actingHeroName} used ${action}${targetId ? ` on enemy ${targetId}` : ''}`,
+      inGameEvents: "Combat action occurred", // Needs more detail later
+    };
+
+    // Rudimentary game state update (replace with actual logic)
+    setGameState(prevState => ({
+      ...prevState,
+      // Keep existing narrative, new one will be added below
+      // Simple turn switch example (needs proper turn order logic)
+      currentTurn: prevState.currentTurn === 'player' ? 'enemy' : 'player',
+      round: prevState.currentTurn === 'enemy' ? prevState.round + 1 : prevState.round,
+      // Update player actions prompt
+      playerActions: prevState.currentTurn === 'enemy' ? "Enemy is acting..." : `Choose an action for ${prevState.party[0]?.name || 'next hero'}`,
+    }));
+
+    // Generate narrative based on action
+    setIsNarrativeLoading(true);
+    try {
+      const result = await generateNarrative(narrativeInput);
+      setGameState(prevState => ({
+        ...prevState,
+        narrativeLog: [...prevState.narrativeLog, result.narrative],
+      }));
+    } catch (error) {
+      console.error("Failed to generate narrative:", error);
+      toast({
+        title: "Narrative Error",
+        description: "Could not generate the next part of the story.",
+        variant: "destructive",
+      });
+       // Add a basic log entry even if AI fails
+       setGameState(prevState => ({
+        ...prevState,
+        narrativeLog: [...prevState.narrativeLog, `(${narrativeInput.playerActions})`],
+      }));
+    } finally {
+      setIsNarrativeLoading(false);
+    }
+
+    // Placeholder enemy turn simulation
+    if (gameState.currentTurn === 'player') { // If it *was* player's turn, now it's enemy's
+        // Simulate enemy action after a short delay
+        setTimeout(async () => {
+            const enemy = gameState.enemies[0]; // Assume first enemy acts
+            const targetHero = gameState.party[Math.floor(Math.random() * gameState.party.length)]; // Target random hero
+            const enemyAction = enemy.skills[0] || 'Basic Attack'; // Assume first skill
+
+            const enemyNarrativeInput: GenerateNarrativeInput = {
+              playerActions: "Enemy turn", // Placeholder
+              inGameEvents: `${enemy.name} used ${enemyAction} on ${targetHero.name}`,
+            };
+
+             setGameState(prevState => ({
+                ...prevState,
+                // Update game state based on enemy action (e.g., reduce hero HP - NEEDS IMPLEMENTATION)
+                // hp: targetHero.hp - enemy.attack, // Needs proper damage calculation
+                playerActions: `Choose an action for ${prevState.party[0]?.name || 'next hero'}`, // Reset prompt
+                currentTurn: 'player', // Switch back to player
+             }));
+
+
+            setIsNarrativeLoading(true);
+            try {
+              const result = await generateNarrative(enemyNarrativeInput);
+              setGameState(prevState => ({
+                ...prevState,
+                narrativeLog: [...prevState.narrativeLog, result.narrative],
+              }));
+            } catch (error) {
+                 console.error("Failed to generate enemy narrative:", error);
+                 toast({
+                    title: "Narrative Error",
+                    description: "Could not generate the enemy's action description.",
+                    variant: "destructive",
+                  });
+                 // Add a basic log entry even if AI fails
+                 setGameState(prevState => ({
+                    ...prevState,
+                    narrativeLog: [...prevState.narrativeLog, `(${enemyNarrativeInput.inGameEvents})`],
+                 }));
+            } finally {
+                setIsNarrativeLoading(false);
+            }
+
+
+        }, 1000); // 1 second delay for enemy turn
+    }
+  };
+
+   const handleSelectHero = (heroId: string) => {
+    setSelectedHeroId(heroId);
+   };
+
+   const handleUpgradeStat = (heroId: string, stat: 'hp' | 'stress' | 'skill') => {
+     // TODO: Implement upgrade logic (e.g., check resources, update stats)
+     toast({
+       title: "Upgrade",
+       description: `Upgrade ${stat} requested for hero ${heroId}. (Not implemented)`,
+     });
+     console.log(`Upgrade ${stat} for hero ${heroId}`);
+   };
+
+   const handleEquipItem = (heroId: string, itemId: string) => {
+     // TODO: Implement item equipping logic
+     toast({
+       title: "Equip Item",
+       description: `Equip item ${itemId} requested for hero ${heroId}. (Not implemented)`,
+     });
+     console.log(`Equip item ${itemId} for hero ${heroId}`);
+   };
+
+
+  const renderView = () => {
+    switch (activeView) {
+      case 'combat':
+        return (
+          <div className="flex flex-col h-full">
+            <div className="flex-grow">
+              <CombatScreen
+                party={gameState.party}
+                enemies={gameState.enemies}
+                currentTurn={gameState.currentTurn}
+                round={gameState.round}
+                onAction={handleAction}
+                activeHeroId={activeHeroId} // Pass the active hero ID
+              />
+            </div>
+            <div className="mt-4">
+              <NarrativeDisplay log={gameState.narrativeLog} isLoading={isNarrativeLoading} />
+            </div>
+          </div>
+        );
+      case 'narrative':
+        // Display narrative log prominently when this view is active
+        return <NarrativeDisplay log={gameState.narrativeLog} isLoading={isNarrativeLoading} />;
+      case 'character':
+        return (
           <CharacterManagementScreen
             heroes={gameState.party}
             onSelectHero={handleSelectHero}
-            selectedHero={selectedHero}
+            selectedHero={selectedHero} // Pass the selected hero object
             onUpgradeStat={handleUpgradeStat}
-            onEquipItem={handleEquipItem}
+            onEquipItem={handleEquipItem} // Pass handler
           />
-        </TabsContent>
-      </Tabs>
+        );
+      default:
+        return <div>Select a view</div>;
+    }
+  };
 
-
-    </div>
+  return (
+    // Wrap the entire layout with SidebarProvider
+    <SidebarProvider>
+      <div className="flex h-screen bg-background">
+        <Sidebar>
+           {/* Add Sidebar items here */}
+           {/* Example using Sidebar components */}
+          <SidebarContent className="p-0">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Combat View (B)"
+                  isActive={activeView === 'combat'}
+                  onClick={() => setActiveView('combat')}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-swords"><path d="m14.5 17.5 4-4-4-4"/><path d="m9.5 6.5-4 4 4 4"/><path d="m3 11.5 18 0"/><path d="m3 12.5 18 0"/></svg>
+                   Combat
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                 <SidebarMenuButton
+                    tooltip="Narrative Log"
+                    isActive={activeView === 'narrative'}
+                    onClick={() => setActiveView('narrative')}
+                  >
+                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-scroll-text"><path d="M8 21h12a2 2 0 0 0 2-2v-2H10v2a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v3h10v10a2 2 0 0 0 2 2Z"/><path d="M16 17h2"/><path d="M16 13h4"/><path d="M10 9h10"/></svg>
+                   Narrative
+                 </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                    tooltip="Character Management"
+                    isActive={activeView === 'character'}
+                    onClick={() => setActiveView('character')}
+                  >
+                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-users-round"><path d="M18 21a8 8 0 0 0-12 0"/><circle cx="12" cy="8" r="5"/><path d="M20 17.5c0 2.5-3.58 5-8 5s-8-2.5-8-5"/></svg>
+                   Characters
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarContent>
+         </Sidebar>
+        <main className="flex-1 p-4 md:p-6 overflow-auto"> {/* Adjusted padding */}
+          {renderView()}
+        </main>
+      </div>
+    </SidebarProvider>
   );
 }
+ 

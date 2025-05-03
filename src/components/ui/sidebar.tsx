@@ -353,16 +353,32 @@ SidebarInput.displayName = "SidebarInput"
 const SidebarHeader = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div">
->(({ className, ...props }, ref) => {
+>(({ className, children, ...props }, ref) => {
+  const { state } = useSidebar(); // Get sidebar state
   return (
     <div
       ref={ref}
       data-sidebar="header"
-      className={cn("flex flex-col gap-2 p-2", className)}
+      className={cn("flex flex-col gap-2 p-3 items-center", className)} // Adjusted padding/alignment
       {...props}
-    />
-  )
-})
+    >
+      {/* Game Logo and Title */}
+      <div className="flex items-center gap-2">
+        <span className="text-2xl">🛡️</span>
+        <h1
+          className={cn(
+            "text-lg font-semibold transition-opacity duration-200 whitespace-nowrap",
+            state === "collapsed" ? "opacity-0 w-0" : "opacity-100 w-auto"
+          )}
+        >
+          Crymson Fate
+        </h1>
+      </div>
+      {/* Original children passed to header can go here if needed */}
+      {children}
+    </div>
+  );
+});
 SidebarHeader.displayName = "SidebarHeader"
 
 const SidebarFooter = React.forwardRef<

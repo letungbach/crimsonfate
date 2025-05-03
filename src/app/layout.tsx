@@ -22,7 +22,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark"> {/* Apply dark theme globally */}
+    // Apply dark theme globally via className on html tag
+    <html lang="en" className="dark">
       <body className={cn(
         `${medievalsharp.variable} font-sans antialiased`, // Apply font variable, keep sans as fallback
         "bg-background text-foreground" // Ensure bg/text colors are applied
