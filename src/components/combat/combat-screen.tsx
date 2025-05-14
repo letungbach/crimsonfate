@@ -40,7 +40,7 @@ export const CombatScreen: FC<CombatScreenProps> = ({ party, enemies, currentTur
         <h2 className="text-2xl font-bold text-primary">⚔️ Round {round} ⚔️</h2>
         {/* Turn Indicator with Emojis */}
         <p className="text-muted-foreground text-lg">
-           {currentTurn === 'player' ? `🦸 Player's Turn` : `👹 Enemy's Turn`}
+           {currentTurn === 'player' ? "🦸 Player's Turn" : "👹 Enemy's Turn"}
         </p>
       </div>
 
